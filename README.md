@@ -8,12 +8,6 @@
 pip install wekon
 ```
 
-Пока пакета нет на PyPI, ставьте напрямую с GitHub:
-
-```bash
-pip install "wekon @ git+https://github.com/SpeachGame/wekon_python.git"
-```
-
 ## Первый бот
 
 Создайте бота у `@god_bot`, получите ключ и запишите его в переменную `WEKON_BOT_API_KEY`.
