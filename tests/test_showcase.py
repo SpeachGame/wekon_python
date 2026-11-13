@@ -20,7 +20,8 @@ from wekon.types import Update
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "showcase_bot.py"
 CARD_BLOCKS = {"header", "text", "image", "gallery", "divider", "callout", "fields", "stats", "progress", "steps", "rating", "tags", "countdown", "list",
-               "table", "collapsible", "tabs", "buttons", "select", "toggle", "slider", "stepper", "grid", "checklist", "calendar"}
+               "table", "collapsible", "tabs", "buttons", "select", "toggle", "slider", "stepper", "grid", "checklist", "calendar", "theme", "cover",
+               "tiles", "chart", "carousel", "chips", "qr"}
 FORM_FIELDS = {"text", "textarea", "number", "select", "multiselect", "date", "time", "toggle", "color"}
 INLINE_RESULTS = {"article", "photo", "gif", "mpeg4_gif", "video", "audio", "voice", "document", "sticker"}
 BUTTON_KINDS = {"callback_data", "url", "copy_text", "form", "switch_inline_query", "switch_inline_query_current_chat", "login_url"}
@@ -253,7 +254,7 @@ def test_nothing_in_the_library_is_left_out(world):
     assert BUTTON_KINDS <= {key for entry in objects if "text" in entry for key in entry}, "кнопки"
     assert KEY_REQUESTS <= {key for entry in objects if "text" in entry for key in entry}, "запросы клавиатуры"
     looks = {key for entry in objects if "callback_data" in entry for key in entry}
-    assert {"icon", "style", "color", "hint", "width", "height", "haptic", "loading", "confirm", "checked", "expires_at", "long_callback_data"} <= looks
+    assert {"icon", "style", "color", "hint", "width", "height", "haptic", "loading", "confirm", "checked", "expires_at", "long_callback_data", "dial"} <= looks
     sent = {key for body in bodies for key in body["details"]}
     assert {"message_thread_id", "disable_notification", "protect_content", "has_spoiler", "show_caption_above_media", "self_destruct_seconds", "link_preview_options",
             "bind_to", "reply_parameters", "reply_to_message_id", "schedule_date", "page", "parse_mode"} <= sent

@@ -10,7 +10,7 @@ pip install wekon
 
 ## Первый бот
 
-Создайте бота у `@god_bot`, получите ключ и запишите его в переменную `WEKON_BOT_API_KEY`.
+Создайте бота у `@wekon_bot`, получите ключ и запишите его в переменную `WEKON_BOT_API_KEY`.
 
 ```python
 from wekon import Bot

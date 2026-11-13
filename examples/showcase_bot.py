@@ -330,7 +330,7 @@ def receive_files(msg):
 # --- кнопки ---
 
 def send_login_buttons(c: int) -> None:
-    """Кнопка входа ведёт только на домен бота: его задают командой /setdomain у god_bot."""
+    """Кнопка входа ведёт только на домен бота: его задают командой /setdomain у @wekon_bot."""
     url = "https://wekon.ru/login"
     keyboard = Keyboard().login("Войти на сайт", url, forward_text="Вход через бота").row(login_button("login_button", url))
     try:
@@ -338,7 +338,7 @@ def send_login_buttons(c: int) -> None:
     except BadRequest as error:
         if error.code != "login_domain_mismatch":
             raise
-        bot.send_message(c, "Кнопку входа сервер не принял: у бота не задан домен wekon.ru. Команда /setdomain у god_bot.")
+        bot.send_message(c, "Кнопку входа сервер не принял: у бота не задан домен wekon.ru. Команда /setdomain у @wekon_bot.")
 
 
 @section("buttons", "🔘 Кнопки")
@@ -502,6 +502,82 @@ def cards_section(r: Report, c: int, msg) -> None:
     r.do("tabs", lambda: bot.send_message(c, card=tabs))
     empty = Card().text("Запасной текст берётся из блока")
     r.do("fallback_text и список блоков", lambda: bot.send_message(c, card=empty.to_list(), text=empty.fallback_text()))
+    looks_steps(r, c)
+
+
+# --- карточки: оформление ---
+
+def looks_steps(r: Report, c: int) -> None:
+    """Оформление карточек: свой фон, обложки, билет, крупные кнопки и крутилки под сообщением."""
+    ticket = (Card("Билет на концерт")
+              .theme(gradient=["#1B1F3B", "#3A2D6B"], angle=160, accent="#FFD60A", radius="l", shape="ticket")
+              .cover(PICTURE.format(1), "Ночной концерт", "Зал «Север», 12 ноября", fade=True,
+                     badge=wekon.badge("−30%", "top_left", "notch", "warning"), tags=["18+", ("Хит", "accent")])
+              .fields({"Ряд": 7, "Место": 14, "Вход": "Б", "Начало": "19:00"}, columns=2)
+              .stats(("до начала, дн", 3), ("мест", 2), ("₽", "4 980"), style="inline")
+              .divider("ticket")
+              .text("Покажите этот билет на входе", "caption", "center")
+              .buttons(button("Добавить в календарь", "look:calendar", style="primary"), style="large")
+              .buttons(url_button("Как добраться", "https://wekon.ru"), style="link"))
+    r.do("theme: градиент и билет, cover с вырезом, display/inline/large/link", lambda: bot.send_message(c, card=ticket))
+    poster = (Card("Афиша")
+              .cover(PICTURE.format(2), "Фестиваль света", "Каждый вечер до воскресенья", mode="background", aspect=1.2,
+                     badge=wekon.badge("Сегодня", "top_right", "pill", "accent"))
+              .text("Вход свободный, начало в 18:00", "body")
+              .buttons(button("Пойду", "look:going", style="primary"), button("Позже", "look:later"), style="large"))
+    r.do("cover фоном всей карточки", lambda: bot.send_message(c, card=poster))
+    product = (Card("Карточка товара")
+               .theme(background="image", radius="m")
+               .cover(PICTURE.format(3), mode="inset", aspect=1.4, badge="Новинка")
+               .text("Наушники Wekon Air", "title")
+               .text("12 490 ₽", "display")
+               .stats(("часов", 30), ("грамм", 48), ("цветов", 4), style="inline")
+               .buttons(button("В корзину", "look:cart", style="primary"), style="large"))
+    r.do("theme: фон из цвета обложки", lambda: bot.send_message(c, card=product))
+    plain = Card("Билет без своего фона").text("Рейс SU 1402", "title").fields({"Вылет": "07:40", "Выход": "12"}).divider("ticket").text("Посадка до 07:10", "caption")
+    r.do("divider ticket без theme", lambda: bot.send_message(c, card=plain))
+    tips = (Keyboard().dial("Сумма перевода", "look:amount", 0, 5000, 1000, step=50, unit="₽", major=10)
+            .dial("Чаевые", "look:tips", 0, 30, 10, unit="%").button("Готово", "look:done"))
+    r.do("dial под сообщением", lambda: bot.send_message(c, "Покрутите линейки — число придёт боту, когда линейка встанет", keyboard=tips))
+    home = (Card("Умный дом")
+            .tiles(wekon.tile("Свет", "70%", icon="💡", fill=0.7, fill_style="wave", tone="warning", data="look:light"),
+                   wekon.tile("Тепло", "22°", icon="🌡", caption="Гостиная", color="#FF7A45"),
+                   wekon.tile("Вода", "40%", icon="💧", fill=0.4, tone="accent"),
+                   ("Охрана", "вкл"), columns=3))
+    r.do("tiles: плитки с заполнением", lambda: bot.send_message(c, card=home))
+    wallet = (Card("Кошелёк")
+              .theme(background="#14161B", accent="#7CFFB2", radius="l")
+              .text("Баланс", "caption").text("12 480 ₽", "dots")
+              .chart([wekon.bar("Пн", 1200), wekon.bar("Вт", 950), wekon.bar("Ср", 2400, highlight=True), ("Чт", 600), ("Пт", 1800)],
+                     label="Расходы за неделю", unit="₽"))
+    r.do("text dots и chart", lambda: bot.send_message(c, card=wallet))
+    cinema = (Card("Кино")
+              .carousel([wekon.poster(PICTURE.format(4), "Ночной джаз", "Концерт-фильм", badge="IMAX", data="look:film"),
+                         (PICTURE.format(1), "Бег", "Документальный"), PICTURE.format(2)], aspect=0.75, label="Сейчас в зале")
+              .chips("look:day", [wekon.chip("17", "17", "ПН", selected=True), ("18", "18", "ВТ"), ("19", "19", "СР"), wekon.chip("20", "20", "ЧТ", disabled=True)],
+                     label="День сеанса"))
+    r.do("carousel и chips", lambda: bot.send_message(c, card=cinema))
+    qr_ticket = (Card("QR-билет").theme(shape="ticket").text("Ночной джаз", "title").fields({"Ряд": 7, "Место": 14})
+                 .divider("ticket").qr("https://wekon.ru/t/7F3K", "Покажите на входе", size="m", style="dots"))
+    r.do("qr в билете", lambda: bot.send_message(c, card=qr_ticket))
+    remote = (ReplyKeyboard(resize=True).dial("Яркость", "look:bright", 0, 100, 70, unit="%", reset=70)
+              .dial("Тон", "look:tone", -50, 50, 0, reset=0).row("Убрать пульт"))
+    r.do("dial в клавиатуре снизу", lambda: bot.send_message(c, "Пульт снизу: вкладки и сброс. Число приходит боту, сообщения в чат не уходят", keyboard=remote))
+
+
+@bot.message("Убрать пульт")
+def remove_remote(msg):
+    msg.reply("Пульт убран", keyboard=RemoveKeyboard())
+
+
+@bot.callback("look:{name}")
+def look_pressed(msg):
+    name = msg.params["name"]
+    if name in ("amount", "tips", "bright", "tone", "day"):
+        # Крутилка: число строкой; в старых приложениях — обычная кнопка, value нет.
+        msg.answer(f"{name} = {msg.value}" if msg.value else "Обновите приложение, чтобы крутить линейку", haptic="selection")
+        return
+    msg.answer(f"Нажата «{name}»", near_button=True)
 
 
 # --- карточки: управление ---

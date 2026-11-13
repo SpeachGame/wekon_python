@@ -30,6 +30,20 @@ def button(text: str, data: str, **look: Any) -> dict:
     return {"text": text, "callback_data": data, **_look(**look)}
 
 
+def dial(text: str, data: str, min: float, max: float, value: Optional[float] = None, *, step: float = 1,
+         unit: Optional[str] = None, major: Optional[int] = None, reset: Optional[float] = None, **look: Any) -> dict:
+    """Крутилка-линейка (одна в ряду): человек крутит её, а когда она остановилась, бот получит
+    ``data`` и выбранное число в ``callback.value`` (строкой).
+
+    ``major`` — через сколько делений длинная риска с подписью; ``reset`` — к чему вернёт кнопка
+    сброса (у крутилки клавиатуры снизу). В старых приложениях это обычная кнопка: нажатие
+    придёт без ``value``.
+    """
+    spec = _clean({"min": min, "max": max, "step": step, "value": min if value is None else value, "unit": unit,
+                   "major": major, "reset": reset})
+    return {"text": text, "callback_data": data, "dial": spec, **_look(**look)}
+
+
 def url_button(text: str, url: str, **look: Any) -> dict:
     """Кнопка-ссылка."""
     return {"text": text, "url": url, **_look(**look)}
@@ -90,6 +104,11 @@ class Keyboard:
 
     def url(self, text: str, url: str, **look: Any) -> "Keyboard":
         return self.row(url_button(text, url, **look))
+
+    def dial(self, text: str, data: str, min: float, max: float, value: Optional[float] = None, *, step: float = 1,
+             unit: Optional[str] = None, major: Optional[int] = None, **look: Any) -> "Keyboard":
+        """Крутилка своим рядом: см. ``dial(...)``."""
+        return self.row(dial(text, data, min, max, value, step=step, unit=unit, major=major, **look))
 
     def copy(self, text: str, value: str, **look: Any) -> "Keyboard":
         return self.row(copy_button(text, value, **look))
@@ -157,6 +176,12 @@ class ReplyKeyboard:
     def file(self, text: str, request_id: int = 1, image_only: bool = False, multiple: bool = False, **look: Any) -> "ReplyKeyboard":
         """Выбор файла: придёт обычным сообщением."""
         return self._request(text, "request_file", _clean({"request_id": request_id, "image_only": image_only or None, "multiple": multiple or None}), look)
+
+    def dial(self, text: str, data: str, min: float, max: float, value: Optional[float] = None, *, step: float = 1,
+             unit: Optional[str] = None, major: Optional[int] = None, reset: Optional[float] = None, **look: Any) -> "ReplyKeyboard":
+        """Крутилка в клавиатуре снизу. Несколько крутилок — вкладки одной панели («Яркость / Тон»),
+        ``reset`` — кнопка сброса. Число приходит в ``callback.value`` (сообщение в чат не уходит), до 5 крутилок."""
+        return self.row(dial(text, data, min, max, value, step=step, unit=unit, major=major, reset=reset, **look))
 
     def to_dict(self) -> dict:
         return {"keyboard": self.rows, **self.options}

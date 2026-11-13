@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from wekon import Card, Form, Keyboard, ReplyKeyboard, button, cell, gap, inline, item, mark, stat, step, url_button
+from wekon import Card, Form, Keyboard, ReplyKeyboard, badge, bar, button, cell, chip, gap, inline, item, mark, poster, stat, step, tile, url_button
 from wekon.aio import Bot
 from wekon.errors import AuthError, BadRequest, Conflict, NetworkError, NotFound, RateLimited
 from wekon.payments import CloudPayments, Robokassa, TBank, YooKassa
@@ -429,6 +429,16 @@ def kitchen_sink():
             .grid(3, [cell("1", "a", selected=True), gap(), cell("10:30", "b", disabled=True)], select="multiple", data="g", max=2)
             .grid(2, ["1", cell("2", tone="success", color="#112233"), cell("3", data="press")]))
     card2 = Card().checklist("c", [("a", "А"), item("b", "Б", "Описание", icon="🧳", checked=True, disabled=True)], label="Дела").checklist("r", [("a", "А")], select="single", max=1)
+    card2.theme(gradient=["#1B1F3B", "#3A2D6B"], angle=135, text="light", accent="#FFD60A", radius="l", shape="ticket")
+    card2.cover("https://example.com/poster.jpg", "Концерт", "12 ноября", mode="overlay", aspect=1.6, fade=True,
+                badge=badge("−30%", "top_left", "notch", "danger"), tags=["18+", ("Хит", "accent")])
+    card2.text("12 490 ₽", "display", "center").stats(("км", 12), ("мин", 65), style="inline").divider("ticket")
+    card2.buttons(button("Купить", "buy", style="primary"), style="large").buttons(url_button("Подробнее", "https://wekon.ru"), style="link")
+    card3 = (Card().tiles(tile("Свет", "70%", icon="💡", fill=0.7, fill_style="wave", tone="warning", span=2, data="light"), ("Тепло", "22°"), columns=2)
+             .chart({"Пн": 1200, "Вт": 2400}, label="Расходы", unit="₽", max=3000).chart([bar("Янв", 5, highlight=True), ("Фев", 7)])
+             .carousel(["https://example.com/1.jpg", ("https://example.com/2.jpg", "Солярис"), poster("https://example.com/3.jpg", "Дюна", badge="IMAX", data="film")], aspect=0.68)
+             .chips("day", [chip("17", "17", "ПН", selected=True), ("18", "18", "ВТ"), "19"], label="День").chips("tags", ["a", "b"], select="multiple", max=2, layout="wrap")
+             .qr("TICKET-7F3K", "Покажите на входе", size="m", style="dots").text("12 480 ₽", "dots", "center"))
     card2.calendar("d", month="2026-12", min="2026-12-01", max="2027-01-31", disabled=["2026-12-07"], marks=[mark("2026-12-03", "success", "окна")], selected=["2026-12-04"], select="multiple", max_selected=2)
     form = (Form("f", "Анкета", submit="Готово").page("Шаг 1").text("a", "А", required=True, placeholder="?", hint="!", default="x", max_length=20).textarea("b", "Б")
             .number("c", "В", min=1, max=5, default=2).select("d", "Г", [("x", "Икс")], default="x").multiselect("e", "Д", [("x", "Икс")], default=["x"])
@@ -436,14 +446,16 @@ def kitchen_sink():
     inline_keyboard = (Keyboard(columns=4).row(button("Да", "y", icon="✅", style="primary", hint="Подсказка", width=2, height=2, haptic="light", loading="border"), button("Нет", "n", color="#112233"))
                        .row(button("Точно", "c", confirm={"title": "Точно?", "text": "Нельзя вернуть", "ok_text": "Да", "destructive": True}), button("Флаг", "t", checked=True))
                        .row(button("Срок", "e", expires_at=__import__("time").time().__int__() + 3600), button("Удержание", "l", long_data="hold")).url("Сайт", "https://wekon.ru").copy("Код", "PROMO").inline("Inline", "запрос").inline("Здесь", here=True).form("Форма", form))
+    dial_keyboard = Keyboard().dial("Сумма", "amount", 0, 5000, 1000, step=50, unit="₽", major=10).button("Готово", "done")
+    reply_dials = ReplyKeyboard().dial("Яркость", "bright", 0, 100, 50, unit="%", reset=50).dial("Тон", "tone", -50, 50, 0, reset=0).row("Готово")
     reply = (ReplyKeyboard("Выберите", one_time=True).row("Да", "Нет").users("Люди", 1, 3, icon="👥", hint="Выбрать").chat("Группа", 2).contact("Телефон").date("Дата", 3, min="2026-01-01")
              .time("Время", 4).color("Цвет", 5).file("Файл", 6, image_only=True))
-    return {"components": [card.to_list(), card2.to_list()], "markups": [inline_keyboard.to_dict(), reply.to_dict()], "inline": [inline.article("1", "Статья", "Текст", description="О"), inline.article("2", "Карточка", card=Card().header("К")), inline.photo("3", "https://example.com/a.png", caption="Фото")]}
+    return {"components": [card.to_list(), card2.to_list(), card3.to_list()], "markups": [inline_keyboard.to_dict(), reply.to_dict(), dial_keyboard.to_dict(), reply_dials.to_dict()], "inline": [inline.article("1", "Статья", "Текст", description="О"), inline.article("2", "Карточка", card=Card().header("К")), inline.photo("3", "https://example.com/a.png", caption="Фото")]}
 
 
 def test_kitchen_sink_builds(tmp_path):
     data = kitchen_sink()
-    assert len({block["type"] for blocks in data["components"] for block in blocks}) == 25
+    assert len({block["type"] for blocks in data["components"] for block in blocks}) == 32
     target = __import__("os").environ.get("WEKON_DUMP")
     if target:
         Path(target).write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")

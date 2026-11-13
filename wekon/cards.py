@@ -69,6 +69,43 @@ def mark(day: Any, tone: Optional[str] = None, text: Optional[str] = None) -> di
     return _clean({"date": _day(day), "tone": tone, "text": text})
 
 
+def tile(title: Optional[str] = None, value: Any = None, *, caption: Optional[str] = None, icon: Optional[str] = None,
+         tone: Optional[str] = None, color: Optional[str] = None, fill: Optional[float] = None, fill_style: Optional[str] = None,
+         span: Optional[int] = None, data: Optional[str] = None) -> dict:
+    """Плитка: название и/или значение. ``fill`` 0..1 — уровень заполнения (``fill_style``: bar или wave),
+    ``span`` — сколько колонок занимает, ``data`` — нажатие (придёт в ``callback_query``)."""
+    return _clean({"title": title, "value": None if value is None else str(value), "caption": caption, "icon": icon,
+                   "tone": tone, "color": color, "fill": fill, "fill_style": fill_style, "span": span, "callback_data": data})
+
+
+def bar(label: str, value: float, *, value_text: Optional[str] = None, tone: Optional[str] = None, highlight: bool = False) -> dict:
+    """Столбик: подпись до 8 знаков и число ≥ 0; ``highlight`` — выделенный (над ним видно значение)."""
+    return _clean({"label": label, "value": value, "value_text": value_text, "tone": tone, "highlight": highlight or None})
+
+
+def poster(url: str, title: Optional[str] = None, subtitle: Optional[str] = None, *, badge: Optional[str] = None,
+           data: Optional[str] = None) -> dict:
+    """Картинка карусели (https); ``data`` — нажатие на неё, когда она в центре."""
+    return _clean({"url": url, "title": title, "subtitle": subtitle, "badge": badge, "callback_data": data})
+
+
+def chip(value: str, label: Any = None, caption: Optional[str] = None, *, icon: Optional[str] = None,
+         selected: bool = False, disabled: bool = False) -> dict:
+    """Чип: ``value`` придёт боту, ``label`` — надпись (по умолчанию — само значение),
+    ``caption`` — строка над ней (день недели над числом)."""
+    return _clean({"value": value, "label": str(value if label is None else label), "caption": caption, "icon": icon,
+                   "selected": selected or None, "disabled": disabled or None})
+
+
+def badge(text: str, position: Optional[str] = None, style: Optional[str] = None, tone: Optional[str] = None) -> dict:
+    """Плашка в углу обложки, до 16 знаков.
+
+    ``position`` — top_left, top_right (по умолчанию), bottom_left или bottom_right;
+    ``style`` — pill (пилюля) или notch (угол обложки «вырезан» цветом карточки).
+    """
+    return _clean({"text": text, "position": position, "style": style, "tone": tone})
+
+
 class Card:
     """Карточка из блоков.
 
@@ -88,9 +125,46 @@ class Card:
         return self._add("header", title=title, subtitle=subtitle, icon=icon, avatar="bot" if avatar else None,
                          status=_clean({"text": status, "tone": tone}) if status else None)
 
-    def text(self, text: str, style: Optional[str] = None) -> "Card":
-        """Текст: ``style`` — body, caption или title."""
-        return self._add("text", text=text, style=style)
+    def text(self, text: str, style: Optional[str] = None, align: Optional[str] = None) -> "Card":
+        """Текст: ``style`` — body, caption, title, display (крупно: цена, итог, заголовок обложки)
+        или dots (точечные цифры табло: цифры, пробел и знаки . , : + − % / ₽ $ € °, до 16 знаков);
+        ``align`` — start, center или end."""
+        return self._add("text", text=text, style=style, align=align)
+
+    def tiles(self, *items: Any, columns: Optional[int] = None) -> "Card":
+        """Плитки: ``tile(...)`` или кортежи ``(название, значение)``; 1–6 плиток в 1–3 колонках."""
+        return self._add("tiles", items=[entry if isinstance(entry, dict) else tile(*entry) for entry in items], columns=columns)
+
+    def chart(self, items: Any, *, label: Optional[str] = None, caption: Optional[str] = None, unit: Optional[str] = None,
+              max: Optional[float] = None, tone: Optional[str] = None) -> "Card":
+        """Столбики: словарь ``{"Пн": 1200, ...}``, пары или ``bar(...)``; 2–31 значение ≥ 0."""
+        bars = [entry if isinstance(entry, dict) else bar(str(entry[0]), entry[1]) for entry in _pairs(items)] \
+            if isinstance(items, dict) else [entry if isinstance(entry, dict) else bar(str(entry[0]), entry[1], *entry[2:]) for entry in items]
+        return self._add("chart", items=bars, label=label, caption=caption, unit=unit, max=max, tone=tone)
+
+    def carousel(self, items: Iterable[Any], *, aspect: Optional[float] = None, label: Optional[str] = None) -> "Card":
+        """Карусель: 2–10 картинок — ссылки, кортежи ``(ссылка, название[, подпись])`` или ``poster(...)``."""
+        def convert(entry: Any) -> dict:
+            if isinstance(entry, dict):
+                return entry
+            return poster(entry) if isinstance(entry, str) else poster(*entry)
+        return self._add("carousel", items=[convert(entry) for entry in items], aspect=aspect, label=label)
+
+    def chips(self, data: str, items: Iterable[Any], *, select: Optional[str] = None, max: Optional[int] = None,
+              label: Optional[str] = None, layout: Optional[str] = None) -> "Card":
+        """Чипы: ``chip(...)``, строки или кортежи ``(значение, надпись[, строка над ней])``.
+        ``select`` — single (по умолчанию) или multiple, ``layout`` — scroll (в строку) или wrap."""
+        def convert(entry: Any) -> dict:
+            if isinstance(entry, dict):
+                return entry
+            return chip(entry) if isinstance(entry, str) else chip(*entry)
+        return self._add("chips", callback_data=data, items=[convert(entry) for entry in items], select=select, max=max,
+                         label=label, layout=layout)
+
+    def qr(self, data: str, caption: Optional[str] = None, *, size: Optional[str] = None, style: Optional[str] = None) -> "Card":
+        """QR-код: ``data`` — ссылка или текст до 300 байт; ``size`` — s, m или l; ``style`` — square, rounded или dots.
+        Нажатие показывает код крупно и на полной яркости экрана."""
+        return self._add("qr", data=data, caption=caption, size=size, style=style)
 
     def image(self, url: str, caption: Optional[str] = None, aspect: Optional[float] = None) -> "Card":
         return self._add("image", url=url, caption=caption, aspect=aspect)
@@ -100,8 +174,41 @@ class Card:
         items = [{"url": image} if isinstance(image, str) else _clean({"url": image[0], "caption": image[1]}) for image in images]
         return self._add("gallery", images=items, aspect=aspect)
 
-    def divider(self) -> "Card":
-        return self._add("divider")
+    def divider(self, style: Optional[str] = None) -> "Card":
+        """Линия; ``style="ticket"`` — линия отрыва билета: пунктир и вырезы по краям карточки."""
+        return self._add("divider", style=style)
+
+    def theme(self, background: Optional[str] = None, *, gradient: Optional[Iterable[str]] = None, angle: Optional[float] = None,
+              text: Optional[str] = None, accent: Optional[str] = None, radius: Optional[str] = None,
+              shape: Optional[str] = None) -> "Card":
+        """Оформление карточки: она рисуется своей подложкой вместо пузыря.
+
+        ``background`` — цвет ``"#RRGGBB"`` или ``"image"`` (цвет обложки); вместо него
+        ``gradient`` — 2–3 цвета и ``angle`` (как в CSS: 0 — вверх, 90 — вправо, 180 — вниз).
+        ``text`` — auto, light или dark; ``accent`` — свой цвет кнопок и элементов;
+        ``radius`` — s, m или l; ``shape="ticket"`` — билет с вырезами у линии отрыва.
+
+        >>> Card().theme(gradient=["#1B1F3B", "#3A2D6B"], angle=135, accent="#FFD60A", shape="ticket")
+        """
+        if gradient is not None:
+            background = _clean({"gradient": list(gradient), "angle": angle})
+        return self._add("theme", background=background, text=text, accent=accent, radius=radius, shape=shape)
+
+    def cover(self, url: str, title: Optional[str] = None, subtitle: Optional[str] = None, *, mode: Optional[str] = None,
+              aspect: Optional[float] = None, fade: Optional[bool] = None, badge: Any = None, tags: Optional[Iterable[Any]] = None) -> "Card":
+        """Обложка: крупная картинка с заголовком.
+
+        ``mode`` — overlay (сверху от края до края, по умолчанию), inset (внутри полей) или
+        background (фоном всей карточки); ``fade=True`` — картинка растворяется в фоне карточки;
+        ``badge`` — строка или ``badge(...)``; ``tags`` — до 4 меток (строки, кортежи или ``tag(...)``).
+        """
+        def convert(entry: Any) -> dict:
+            if isinstance(entry, dict):
+                return entry
+            return tag(entry) if isinstance(entry, str) else tag(*entry)
+        return self._add("cover", url=url, title=title, subtitle=subtitle, mode=mode, aspect=aspect, fade=fade or None,
+                         badge={"text": badge} if isinstance(badge, str) else badge,
+                         tags=[convert(entry) for entry in tags] if tags else None)
 
     def callout(self, text: str, tone: Optional[str] = None, icon: Optional[str] = None) -> "Card":
         return self._add("callout", text=text, tone=tone, icon=icon)
@@ -110,9 +217,10 @@ class Card:
         """Строки «название — значение»: словарь или пары."""
         return self._add("fields", items=[{"label": label, "value": str(value)} for label, value in _pairs(items)], columns=columns)
 
-    def stats(self, *items: Any) -> "Card":
-        """Крупные цифры: ``stat(...)`` или кортежи ``(подпись, значение[, тон])``."""
-        return self._add("stats", items=[entry if isinstance(entry, dict) else stat(*entry) for entry in items])
+    def stats(self, *items: Any, style: Optional[str] = None) -> "Card":
+        """Крупные цифры: ``stat(...)`` или кортежи ``(подпись, значение[, тон])``;
+        ``style="inline"`` — в строку через тонкие разделители."""
+        return self._add("stats", items=[entry if isinstance(entry, dict) else stat(*entry) for entry in items], style=style)
 
     def progress(self, value: Optional[float] = None, label: Optional[str] = None, *, caption=None, tone=None, style=None,
                  segments=None, size=None, value_text=None, show_value=None, animated=None, indeterminate=None) -> "Card":
@@ -152,9 +260,10 @@ class Card:
         """Вкладки: ``{"Название": Card(), ...}``."""
         return self._add("tabs", tabs=[{"title": title, "components": card.to_list()} for title, card in _pairs(tabs)])
 
-    def buttons(self, *items: Any) -> "Card":
-        """Кнопки внутри карточки: кортежи ``(текст, data)`` или ``button(...)``."""
-        return self._add("buttons", buttons=[_to_button(entry) for entry in items])
+    def buttons(self, *items: Any, style: Optional[str] = None) -> "Card":
+        """Кнопки внутри карточки: кортежи ``(текст, data)`` или ``button(...)``;
+        ``style`` — large (крупные) или link (только подпись, как ссылка)."""
+        return self._add("buttons", buttons=[_to_button(entry) for entry in items], style=style)
 
     def select(self, data: str, options: Iterable[Any], selected: Optional[str] = None, *, label=None, placeholder=None, haptic=None) -> "Card":
         """Список выбора. Варианты: ``option(...)`` или кортежи ``(значение, подпись[, значок])``."""
